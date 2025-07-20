@@ -13,7 +13,6 @@
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
-  force = true
 
 # Redirect all other routes to index.html for React Router
 [[redirects]]
