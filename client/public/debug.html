@@ -5,43 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Debug Test</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .test-result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
-        .success { background-color: #d4edda; border-color: #c3e6cb; }
-        .error { background-color: #f8d7da; border-color: #f5c6cb; }
-        button { padding: 10px 15px; margin: 5px; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .test-section { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-result { margin: 10px 0; padding: 15px; border-radius: 4px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        button { padding: 12px 20px; margin: 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        input { padding: 10px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .clear-btn { background: #6c757d; }
     </style>
 </head>
 <body>
-    <h1>Netlify Functions API Debug</h1>
-    
-    <div>
-        <button onclick="testHealth()">Test Health Check</button>
-        <button onclick="testLogin()">Test Login</button>
-        <button onclick="testRegister()">Test Register</button>
+    <div class="container">
+        <h1>🔧 Netlify Functions API Debug Tool</h1>
+        
+        <div class="test-section">
+            <h2>🩺 Health Check</h2>
+            <button onclick="testHealth()">Test Health Check</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📝 User Registration Test</h2>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="regEmail" value="test@example.com" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="regPassword" value="testpass123" placeholder="Enter password (min 6 chars)">
+            </div>
+            <button onclick="testRegister()">Test Registration</button>
+            <button onclick="generateRandomUser()" class="clear-btn">Generate Random User</button>
+        </div>
+
+        <div class="test-section">
+            <h2>🔐 User Login Test</h2>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="loginEmail" value="test@example.com" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="loginPassword" value="testpass123" placeholder="Enter password">
+            </div>
+            <button onclick="testLogin()">Test Login</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Todo Operations Test</h2>
+            <p><em>Note: Login first to get authentication token</em></p>
+            <button onclick="testGetTodos()">Get Todos</button>
+            <button onclick="testCreateTodo()">Create Sample Todo</button>
+        </div>
+
+        <div class="test-section">
+            <h2>🧹 Controls</h2>
+            <button onclick="clearResults()" class="clear-btn">Clear Results</button>
+            <button onclick="runAllTests()">Run All Tests</button>
+        </div>
+        
+        <div id="results"></div>
     </div>
-    
-    <div id="results"></div>
 
     <script>
         const API_URL = ''; // Empty for relative URLs
+        let authToken = null;
         
-        function addResult(title, success, data) {
+        function addResult(title, success, data, isInfo = false) {
             const resultsDiv = document.getElementById('results');
             const resultDiv = document.createElement('div');
-            resultDiv.className = `test-result ${success ? 'success' : 'error'}`;
+            const className = isInfo ? 'info' : (success ? 'success' : 'error');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            resultDiv.className = `test-result ${className}`;
             resultDiv.innerHTML = `
-                <h3>${title}</h3>
+                <h3>${title} - ${timestamp}</h3>
                 <pre>${JSON.stringify(data, null, 2)}</pre>
             `;
-            resultsDiv.appendChild(resultDiv);
+            resultsDiv.insertBefore(resultDiv, resultsDiv.firstChild);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        function generateRandomUser() {
+            const randomId = Math.random().toString(36).substring(7);
+            const email = `user${randomId}@example.com`;
+            const password = `pass${randomId}123`;
+            
+            document.getElementById('regEmail').value = email;
+            document.getElementById('regPassword').value = password;
+            document.getElementById('loginEmail').value = email;
+            document.getElementById('loginPassword').value = password;
+            
+            addResult('Random User Generated', true, { email, password }, true);
         }
         
         async function testHealth() {
             try {
                 const response = await fetch(`${API_URL}/api/health`);
                 const data = await response.json();
-                addResult('Health Check', response.ok, { status: response.status, data });
+                addResult('Health Check', response.ok, { 
+                    status: response.status, 
+                    statusText: response.statusText,
+                    data 
+                });
             } catch (error) {
                 addResult('Health Check', false, { error: error.message });
             }
@@ -49,41 +124,175 @@
         
         async function testRegister() {
             try {
+                const email = document.getElementById('regEmail').value;
+                const password = document.getElementById('regPassword').value;
+                
+                if (!email || !password) {
+                    addResult('Registration', false, { error: 'Please enter both email and password' });
+                    return;
+                }
+                
                 const response = await fetch(`${API_URL}/api/users/register`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        email: 'test@example.com',
-                        password: 'testpassword123'
-                    })
+                    body: JSON.stringify({ email, password })
                 });
+                
                 const data = await response.json();
-                addResult('Register', response.ok, { status: response.status, data });
+                addResult('Registration', response.ok, { 
+                    status: response.status,
+                    statusText: response.statusText,
+                    requestData: { email, password: '***hidden***' },
+                    responseData: data 
+                });
+                
+                // If registration successful, copy credentials to login form
+                if (response.ok) {
+                    document.getElementById('loginEmail').value = email;
+                    document.getElementById('loginPassword').value = password;
+                }
+                
             } catch (error) {
-                addResult('Register', false, { error: error.message });
+                addResult('Registration', false, { error: error.message });
             }
         }
         
         async function testLogin() {
             try {
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                if (!email || !password) {
+                    addResult('Login', false, { error: 'Please enter both email and password' });
+                    return;
+                }
+                
                 const response = await fetch(`${API_URL}/api/users/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        email: 'test@example.com',
-                        password: 'testpassword123'
-                    })
+                    body: JSON.stringify({ email, password })
                 });
+                
                 const data = await response.json();
-                addResult('Login', response.ok, { status: response.status, data });
+                
+                // Store auth token if login successful
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                }
+                
+                addResult('Login', response.ok, { 
+                    status: response.status,
+                    statusText: response.statusText,
+                    requestData: { email, password: '***hidden***' },
+                    responseData: data,
+                    tokenReceived: !!data.token
+                });
+                
             } catch (error) {
                 addResult('Login', false, { error: error.message });
             }
         }
+        
+        async function testGetTodos() {
+            try {
+                if (!authToken) {
+                    addResult('Get Todos', false, { error: 'No auth token. Please login first.' });
+                    return;
+                }
+                
+                const response = await fetch(`${API_URL}/api/todos`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                addResult('Get Todos', response.ok, { 
+                    status: response.status,
+                    statusText: response.statusText,
+                    data,
+                    todoCount: Array.isArray(data) ? data.length : 'N/A'
+                });
+                
+            } catch (error) {
+                addResult('Get Todos', false, { error: error.message });
+            }
+        }
+        
+        async function testCreateTodo() {
+            try {
+                if (!authToken) {
+                    addResult('Create Todo', false, { error: 'No auth token. Please login first.' });
+                    return;
+                }
+                
+                const todoData = {
+                    title: `Test Todo ${new Date().toLocaleTimeString()}`,
+                    deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+                    priority: 'High'
+                };
+                
+                const response = await fetch(`${API_URL}/api/todos`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(todoData)
+                });
+                
+                const data = await response.json();
+                addResult('Create Todo', response.ok, { 
+                    status: response.status,
+                    statusText: response.statusText,
+                    requestData: todoData,
+                    responseData: data
+                });
+                
+            } catch (error) {
+                addResult('Create Todo', false, { error: error.message });
+            }
+        }
+        
+        async function runAllTests() {
+            clearResults();
+            addResult('Starting Full Test Suite', true, { message: 'Running all tests in sequence...' }, true);
+            
+            // Generate random user for testing
+            generateRandomUser();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Test health
+            await testHealth();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Test registration
+            await testRegister();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Test login
+            await testLogin();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Test todos if login successful
+            if (authToken) {
+                await testGetTodos();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await testCreateTodo();
+            }
+            
+            addResult('Test Suite Complete', true, { message: 'All tests completed' }, true);
+        }
+        
+        // Auto-run health check on page load
+        window.onload = function() {
+            testHealth();
+        };
     </script>
 </body>
 </html>
