@@ -1,6 +1,6 @@
 // API configuration for different environments
 const config = {
-  apiUrl: process.env.REACT_APP_API_URL || ''
+  apiUrl: process.env.REACT_APP_API_URL || 'https://todoalertmananger.netlify.app'
 };
 
 export default config;
