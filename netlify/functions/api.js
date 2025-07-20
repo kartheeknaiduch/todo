@@ -319,6 +319,34 @@ exports.handler = async (event, context) => {
         };
       }
 
+      // GET /users - Get current user's information and preferences
+      if (path === '/users' && method === 'GET') {
+        console.log('📝 Getting user information for:', user.email);
+
+        const currentUser = await User.findOne({ email: user.email });
+
+        if (!currentUser) {
+          return {
+            statusCode: 404,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'User not found' })
+          };
+        }
+
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: currentUser.email,
+            notificationPreferences: currentUser.notificationPreferences || {
+              enabled: true,
+              reminderTime: 12,
+              customMessage: ''
+            }
+          })
+        };
+      }
+
       // POST /users - Update user notification preferences
       if (path === '/users' && method === 'POST') {
         const { email, notificationPreferences } = JSON.parse(event.body);
@@ -373,7 +401,7 @@ exports.handler = async (event, context) => {
           '/login (POST)',
           '/todos (GET/POST) - requires auth',
           '/todos/:id (PUT/DELETE) - requires auth',
-          '/users (POST) - requires auth'
+          '/users (GET/POST) - requires auth'
         ]
       })
     };

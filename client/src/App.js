@@ -617,6 +617,37 @@ function App() {
     }
   };
 
+  const loadUserPreferences = async () => {
+    try {
+      const response = await axios.get(`${config.apiUrl}/api/users`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      const { notificationPreferences } = response.data;
+      if (notificationPreferences) {
+        setNotificationEnabled(notificationPreferences.enabled ?? true);
+        setReminderTime(notificationPreferences.reminderTime ?? 12);
+        setCustomMessage(notificationPreferences.customMessage ?? '');
+      }
+    } catch (error) {
+      console.error("Error loading user preferences:", error);
+      // Set default values if loading fails
+      setNotificationEnabled(true);
+      setReminderTime(12);
+      setCustomMessage('');
+    }
+  };
+
+  const toggleSettings = async () => {
+    if (!showSettings) {
+      // Load preferences when opening settings
+      await loadUserPreferences();
+    }
+    setShowSettings(!showSettings);
+  };
+
   const startEdit = (todo) => {
     setEditId(todo._id);
     setEditTitle(todo.title);
@@ -668,7 +699,7 @@ function App() {
             Logout
           </button>
           <button
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={toggleSettings}
             className="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded"
           >
             ⚙️ Settings
