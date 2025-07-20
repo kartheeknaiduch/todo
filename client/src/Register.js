@@ -13,13 +13,18 @@ function Register({ onRegister, switchToLogin }) {
     setError('');
     setSuccess('');
     try {
-      await axios.post(`${config.apiUrl}/api/users/register`, { email, password });
+      await axios.post(`${config.apiUrl}/api/register`, { 
+        email, 
+        password,
+        username: email.split('@')[0] // Use email prefix as username
+      });
       setSuccess('Registration successful! You can now log in.');
       setTimeout(() => {
         onRegister();
       }, 1000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+      console.error('Registration error:', err);
+      setError(err.response?.data?.message || err.response?.data?.error || 'Registration failed. Please try again.');
     }
   };
 

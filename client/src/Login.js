@@ -11,10 +11,11 @@ function Login({ onLogin, switchToRegister }) {
     e.preventDefault();
     setError('');
     try {
-      const res = await axios.post(`${config.apiUrl}/api/users/login`, { email, password });
+      const res = await axios.post(`${config.apiUrl}/api/login`, { email, password });
       onLogin(res.data.token, res.data.email);
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || err.response?.data?.error || 'Login failed. Please try again.');
     }
   };
 
