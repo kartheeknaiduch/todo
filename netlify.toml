@@ -3,7 +3,7 @@
   publish = "client/build"
   
   # Build command for both frontend and functions
-  command = "npm install && cd client && npm install && npm run build"
+  command = "npm install && cd client && npm install && npm run build && cd ../netlify/functions && npm install"
   
   # Netlify Functions directory
   functions = "netlify/functions"
