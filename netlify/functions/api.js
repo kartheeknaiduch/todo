@@ -7,7 +7,12 @@ const jwt = require('jsonwebtoken');
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true }
+  password: { type: String, required: true },
+  notificationPreferences: {
+    enabled: { type: Boolean, default: true },
+    reminderTime: { type: Number, default: 12 },
+    customMessage: { type: String, default: '' }
+  }
 }, { timestamps: true });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
@@ -313,6 +318,45 @@ exports.handler = async (event, context) => {
           body: JSON.stringify({ message: 'Todo deleted successfully' })
         };
       }
+
+      // POST /users - Update user notification preferences
+      if (path === '/users' && method === 'POST') {
+        const { email, notificationPreferences } = JSON.parse(event.body);
+        
+        console.log('📝 Updating user notification preferences:', { email, notificationPreferences });
+
+        const updatedUser = await User.findOneAndUpdate(
+          { email: user.email },
+          { 
+            notificationPreferences: {
+              enabled: notificationPreferences?.enabled ?? true,
+              reminderTime: notificationPreferences?.reminderTime ?? 12,
+              customMessage: notificationPreferences?.customMessage ?? ''
+            }
+          },
+          { new: true, runValidators: true }
+        );
+
+        if (!updatedUser) {
+          return {
+            statusCode: 404,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'User not found' })
+          };
+        }
+
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: 'User preferences updated successfully',
+            user: {
+              email: updatedUser.email,
+              notificationPreferences: updatedUser.notificationPreferences
+            }
+          })
+        };
+      }
     }
 
     // Default response for unmatched routes
@@ -328,7 +372,8 @@ exports.handler = async (event, context) => {
           '/register (POST)', 
           '/login (POST)',
           '/todos (GET/POST) - requires auth',
-          '/todos/:id (PUT/DELETE) - requires auth'
+          '/todos/:id (PUT/DELETE) - requires auth',
+          '/users (POST) - requires auth'
         ]
       })
     };
