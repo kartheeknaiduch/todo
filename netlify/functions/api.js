@@ -220,7 +220,7 @@ exports.handler = async (event, context) => {
     };
 
     // Protected routes require authentication
-    if (path.startsWith('/todos')) {
+    if (path.startsWith('/todos') || path.startsWith('/users')) {
       const authHeader = event.headers.authorization || event.headers.Authorization;
       let user;
       
