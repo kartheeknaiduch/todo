@@ -1,0 +1,27 @@
+[build]
+  # Directory to publish (React build output)
+  publish = "client/build"
+  
+  # Build command for both frontend and functions
+  command = "npm install && cd client && npm install && npm run build"
+  
+  # Netlify Functions directory
+  functions = "netlify/functions"
+
+# Redirect all API routes to Netlify Functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Redirect all other routes to index.html for React Router
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Environment variables for build
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_VERSION = "9"
