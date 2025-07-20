@@ -12,6 +12,18 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
+// Todo schema (inline to avoid file dependency issues)
+const todoSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String },
+  completed: { type: Boolean, default: false },
+  priority: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
+  deadline: { type: Date },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+const Todo = mongoose.models.Todo || mongoose.model('Todo', todoSchema);
+
 // MongoDB connection
 let cachedDb = null;
 
@@ -188,6 +200,121 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // JWT Authentication helper function
+    const authenticateToken = (authHeader) => {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new Error('No token provided');
+      }
+      
+      const token = authHeader.substring(7);
+      try {
+        return jwt.verify(token, process.env.JWT_SECRET);
+      } catch (error) {
+        throw new Error('Invalid token');
+      }
+    };
+
+    // Protected routes require authentication
+    if (path.startsWith('/todos')) {
+      const authHeader = event.headers.authorization || event.headers.Authorization;
+      let user;
+      
+      try {
+        user = authenticateToken(authHeader);
+      } catch (error) {
+        return {
+          statusCode: 401,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'Unauthorized: ' + error.message })
+        };
+      }
+
+      // GET /todos - Get all todos for user
+      if (path === '/todos' && method === 'GET') {
+        const todos = await Todo.find({ userId: user.userId }).sort({ createdAt: -1 });
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify(todos)
+        };
+      }
+
+      // POST /todos - Create new todo
+      if (path === '/todos' && method === 'POST') {
+        const { title, description, priority, deadline } = JSON.parse(event.body);
+        
+        if (!title) {
+          return {
+            statusCode: 400,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'Title is required' })
+          };
+        }
+
+        const newTodo = new Todo({
+          title,
+          description,
+          priority: priority || 'Medium',
+          deadline: deadline ? new Date(deadline) : null,
+          userId: user.userId
+        });
+
+        await newTodo.save();
+        return {
+          statusCode: 201,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify(newTodo)
+        };
+      }
+
+      // PUT /todos/:id - Update todo
+      if (path.match(/^\/todos\/[a-f\d]{24}$/) && method === 'PUT') {
+        const todoId = path.split('/')[2];
+        const updateData = JSON.parse(event.body);
+        
+        const todo = await Todo.findOneAndUpdate(
+          { _id: todoId, userId: user.userId },
+          updateData,
+          { new: true }
+        );
+        
+        if (!todo) {
+          return {
+            statusCode: 404,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'Todo not found' })
+          };
+        }
+
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify(todo)
+        };
+      }
+
+      // DELETE /todos/:id - Delete todo
+      if (path.match(/^\/todos\/[a-f\d]{24}$/) && method === 'DELETE') {
+        const todoId = path.split('/')[2];
+        
+        const todo = await Todo.findOneAndDelete({ _id: todoId, userId: user.userId });
+        
+        if (!todo) {
+          return {
+            statusCode: 404,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'Todo not found' })
+          };
+        }
+
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'Todo deleted successfully' })
+        };
+      }
+    }
+
     // Default response for unmatched routes
     return {
       statusCode: 404,
@@ -196,7 +323,13 @@ exports.handler = async (event, context) => {
         message: 'Endpoint not found',
         path,
         method,
-        availableEndpoints: ['/health (GET)', '/register (POST)', '/login (POST)']
+        availableEndpoints: [
+          '/health (GET)', 
+          '/register (POST)', 
+          '/login (POST)',
+          '/todos (GET/POST) - requires auth',
+          '/todos/:id (PUT/DELETE) - requires auth'
+        ]
       })
     };
 
